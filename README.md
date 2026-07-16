@@ -1,21 +1,42 @@
+CREATE TABLE silver.opensanctions_entities (
+    id                  STRING,
+    source_system    STRING,
+    referents          ARRAY<STRING>,
+    properties         STRING,
+    datasets           ARRAY<STRING>,
+    created_at       TIMESTAMP,
+    updated_at       TIMESTAMP,
+    ingested_at        TIMESTAMP
 
-CREATE TABLE gold_entities (
+)
+USING iceberg
+PARTITIONED BY (source_system)
+TBLPROPERTIES (
+    'format-version' = '2',
+    'write.merge.mode' = 'merge-on-read',
+    'write.delete.mode' = 'merge-on-read'
+);
+
+
+CREATE TABLE opensanctions_entities_state (
     canonical_id TEXT PRIMARY KEY,
-    schema TEXT,
-    properties JSONB,
-    referents TEXT[],
-    datasets TEXT[],
-    first_seen TIMESTAMP,
-    last_change TIMESTAMP,
-    updated_at TIMESTAMP
+    schema STRING,
+    referents          ARRAY<STRING>,
+    properties         STRING,
+    datasets           ARRAY<STRING>,
+    created_at       TIMESTAMP,
+    updated_at       TIMESTAMP,
 );
 
-CREATE TABLE gold_referents (
-    referent_id TEXT PRIMARY KEY,
-    canonical_id TEXT NOT NULL,
-    first_linked_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
+CREATE TABLE entities_referents (
+    canonical_id      STRING,
+    referent_id       STRING,
+    created_at       TIMESTAMP,
+    updated_at       TIMESTAMP,
+)
+USING iceberg
+PARTITIONED BY (source_system)
+TBLPROPERTIES ('format-version' = '2', 'write.merge.mode' = 'merge-on-read');
 
 
 
@@ -75,3 +96,29 @@ ghi lại theo source_id='Q12509206'):
   DELETE gold_edges WHERE source_id = 'ofac-9615'
   INSERT gold_edges (source_id='Q12509206', property='addressEntity', 
                       target_id='NK-giHBk...')
+
+NGAY 10/7
+{"id": "ofac-9615", "schema": "Person", "referents": [],
+ "properties": {"name": ["Gun Gun Rusman Gunawan"], "addressEntity": ["addr-178dc0cb7da010fb28930b66156a138fec5877da"]},
+ "last_change": "2026-07-10"}
+
+NGÀY 3 (20/7) — Person được merge
+{"id": "Q12509206", "schema": "Person",
+ "referents": ["ofac-9615", "unsc-111952", "gb-fcdo-aqd0180", "..."],
+ "properties": {
+   "name": ["GUN GUN RUSMAN GUNAWAN"],
+   "addressEntity": ["NK-giHBkgGYzV56ZnusajSZEe"]   ← ĐÃ TỰ REWRITE sang canonical mới!
+ },
+ "last_change": "2026-07-20"}
+
+entity.id = Q12509206 → chưa có trong entities
+
+Loop qua referents:
+  - "ofac-9615" → TÌM THẤY trong entities (record ngày 1!)
+      → DELETE entities WHERE canonical_id = 'ofac-9615'
+      → UPSERT referents (referent_id='ofac-9615', canonical_id='Q12509206')
+  - "unsc-111952", "gb-fcdo-aqd0180"... → chưa từng thấy độc lập
+      → vẫn UPSERT gold_referents cho từng cái
+
+INSERT entities (canonical_id='Q12509206', schema=Person, 
+                       properties={..., addressEntity: ['NK-giHBk...']})
