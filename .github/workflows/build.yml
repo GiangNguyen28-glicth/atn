@@ -1,9 +1,12 @@
 name: Pull and Package NiFi
-on: workflow_dispatch
+
+on:
+  workflow_dispatch:
 
 jobs:
-  build:
+ build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Pull NiFi image
         run: docker pull apache/nifi:1.28.1
@@ -15,5 +18,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nifi-image
-          path: 1.28.1.tar.gz
+          path: nifi-1.28.1.tar.gz
           retention-days: 3
