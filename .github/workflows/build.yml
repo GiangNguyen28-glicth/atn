@@ -1,19 +1,32 @@
-name: Pull and Package NiFi
-on: workflow_dispatch
+name: Export Docker Images
+
+on:
+  workflow_dispatch:
 
 jobs:
-  build:
+  export-images:
     runs-on: ubuntu-latest
-    steps:
-      - name: Pull NiFi image
-        run: docker pull apache/nifi:2.10.0
 
-      - name: Save and compress image
-        run: docker save apache/nifi:2.10.0 | gzip > nifi-2.10.0.tar.gz
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Pull Docker images
+        run: |
+          docker pull minio/minio:latest
+
+      - name: Save Docker images
+        run: |
+          mkdir images
+          docker save minio/minio:latest \
+            -o images/minio.tar
+
+      - name: Compress
+        run: |
+          tar -czf docker-images.tar.gz images
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nifi-image
-          path: nifi-2.10.0.tar.gz
-          retention-days: 3
+          name: docker-images
+          path: docker-images.tar.gz
