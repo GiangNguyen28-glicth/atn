@@ -1,22 +1,39 @@
-name: Pull and Package NiFi
+name: Export Docker Compose Images
 
 on:
   workflow_dispatch:
 
 jobs:
- build:
+  export-images:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Pull NiFi image
-        run: docker pull apache/nifi:1.28.1
+      - name: Pull images
+        run: |
+          docker pull apache/iceberg-rest-fixture
+          docker pull minio/minio:latest
+          docker pull minio/mc:latest
 
-      - name: Save and compress image
-        run: docker save apache/nifi:1.28.1 | gzip > nifi-1.28.1.tar.gz
+      - name: Export images
+        run: |
+          mkdir images
+
+          docker save apache/iceberg-rest-fixture \
+            -o images/apache-iceberg-rest-fixture.tar
+
+          docker save minio/minio:latest \
+            -o images/minio.tar
+
+          docker save minio/mc:latest \
+            -o images/minio-mc.tar
+
+      - name: Compress artifacts
+        run: |
+          tar -czf docker-images.tar.gz images
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nifi-image
-          path: nifi-1.28.1.tar.gz
-          retention-days: 3
+          name: docker-images
+          path: docker-images.tar.gz
+          retention-days: 1
